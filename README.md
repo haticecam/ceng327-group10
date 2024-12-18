@@ -62,4 +62,5 @@ While the current application applies effects after loading or recording has com
 - Continuously process audio buffers in the sounddevice callback, applying effects on-the-fly before playback.
 - Update the waveform in near-real-time as the audio changes.
 - Dynamically adjust effect parameters during playback.
+
 These changes would transform the application from a post-processing tool into a true real-time effects processor.
