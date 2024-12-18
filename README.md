@@ -34,10 +34,10 @@ Ensure you have Python 3.x and the following libraries installed:
 pip install PyQt5 pygame sounddevice numpy matplotlib
 ```
 ### Running the Application
-Clone the repository or download the proje.py file.
-Install the required dependencies.
-In the terminal, navigate to the directory containing proje.py.
-Run the application:
+1. Clone the repository or download the proje.py file.
+2. Install the required dependencies.
+3. In the terminal, navigate to the directory containing proje.py.
+4. Run the application:
 ```bash
 python proje.py
 ```
@@ -50,16 +50,16 @@ Recording Audio: Click "Start Recording" to capture audio from your microphone. 
 ### Applying Effects
 Select your desired effect from the "Effects" menu or via buttons on the left panel:
 
-Original: Resets to the raw audio signal.
-Echo: Adds a delayed repeat to the signal.
-Bass: Emphasizes lower frequencies (like applying a rudimentary low-pass filter).
-Reverb: Adds multiple delayed reflections, simulating a room-like acoustic space.
+- **Original:** Resets to the raw audio signal.
+- **Echo:** Adds a delayed repeat to the signal.
+- **Bass:** Emphasizes lower frequencies (like applying a rudimentary low-pass filter).
+- **Reverb:** Adds multiple delayed reflections, simulating a room-like acoustic space.
 After selecting an effect, click the waveform visualization buttons ("Original", "Echo", "Bass", "Reverb") on the right panel to see the processed waveform.
 
 ### Towards Real-Time Processing
 While the current application applies effects after loading or recording has completed, it serves as a blueprint for real-time processing. Future enhancements could:
 
-Continuously process audio buffers in the sounddevice callback, applying effects on-the-fly before playback.
-Update the waveform in near-real-time as the audio changes.
-Dynamically adjust effect parameters during playback.
+- Continuously process audio buffers in the sounddevice callback, applying effects on-the-fly before playback.
+- Update the waveform in near-real-time as the audio changes.
+- Dynamically adjust effect parameters during playback.
 These changes would transform the application from a post-processing tool into a true real-time effects processor.
