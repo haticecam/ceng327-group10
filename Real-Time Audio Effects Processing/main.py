@@ -3,7 +3,7 @@ import pygame
 import wave
 import numpy as np
 import sounddevice as sd
-import librosa  # MP3 desteği için eklendi
+import librosa  # Added for MP3 file support
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QFileDialog, QLabel, QSlider, QMessageBox, 
                              QMenuBar, QMenu, QAction, QStatusBar, QGroupBox)
@@ -12,6 +12,9 @@ from PyQt5.QtGui import QFont
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from scipy.signal import convolve, butter, lfilter
+from scipy.signal import medfilt
+import psola
+
 
 class AudioApp(QMainWindow):
     def __init__(self):
@@ -35,11 +38,11 @@ class AudioApp(QMainWindow):
         self.processed_data = None
         self.processed_sound = None
 
-        # Çalım durumu
+        # Play situation
         self.file_play_channel = None
         self.is_file_paused = False
 
-        # En son hangi kaynak kullanıldı? "file", "recording" veya None
+        # Which resource has been used lastly? "file", "recording", or None
         self.last_source = None
 
         self.initUI()
@@ -161,7 +164,7 @@ class AudioApp(QMainWindow):
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
 
-        # File Playback Controls (üst tarafta)
+        # File Playback Controls ( top side)
         file_control_group = QGroupBox("Playback Controls")
         file_control_layout = QHBoxLayout()
 
@@ -180,7 +183,7 @@ class AudioApp(QMainWindow):
         file_control_group.setLayout(file_control_layout)
         main_layout.addWidget(file_control_group)
 
-        # Devamında sol panel (Effect, Recording, File ops) ve sağ panel (Waveform)
+        # in continuation left panel (Effect, Recording, File ops) and right panel (Waveform)
         top_layout = QHBoxLayout()
 
         # Left panel: Effects, Volume, Recording, File
@@ -207,6 +210,7 @@ class AudioApp(QMainWindow):
         effects_layout.addWidget(echo_btn)
         effects_layout.addWidget(bass_btn)
         effects_layout.addWidget(reverb_btn)
+
         effects_group.setLayout(effects_layout)
 
         # Volume Control
@@ -320,7 +324,7 @@ class AudioApp(QMainWindow):
             if file_path.lower().endswith(".wav"):
                 self.read_wav_file(file_path)
             elif file_path.lower().endswith(".mp3"):
-                self.read_mp3_file(file_path)  # MP3 dosyası için yeni fonksiyon
+                self.read_mp3_file(file_path)  # New function for MP3 file
             else:
                 self.waveform_data = None
                 self.fs = None
@@ -355,9 +359,9 @@ class AudioApp(QMainWindow):
         self.status_bar.showMessage("WAV file waveform loaded for effects.")
 
     def read_mp3_file(self, file_path):
-        # MP3 dosyası için librosa ile waveform ve fs elde edelim
+        # Let's obtain waweform and fs with librosa for the MP3 file.
         y, sr = librosa.load(file_path, sr=None, mono=False)
-        # Stereo ise mono'ya çevir (ortalamayla)
+        #  If it is stereo turn it to mono. (Using mean function)
         if y.ndim > 1:
             y = np.mean(y, axis=0)
         self.waveform_data = y.astype(np.float32)
@@ -602,7 +606,7 @@ class AudioApp(QMainWindow):
             processed = lfilter(b, a, data)
             return processed
         elif effect_name == "Reverb":
-            # Reverb parametreleri
+            # Reverb parameters
             ir_length = int(0.5 * self.fs)
             decay = 0.8
             dry_wet = 0.6
@@ -623,27 +627,49 @@ class AudioApp(QMainWindow):
             QMessageBox.warning(self, "Warning", "Please load an audio file or make a recording first!")
             return
 
-        processed_data = self.get_processed_data(effect_name)
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        ax.set_facecolor('#303030')
-        ax.tick_params(colors='white', which='both') 
-        ax.spines['bottom'].set_color('white')
-        ax.spines['top'].set_color('white') 
-        ax.spines['right'].set_color('white')
-        ax.spines['left'].set_color('white')
-        ax.xaxis.label.set_color('white')
-        ax.yaxis.label.set_color('white')
-        ax.title.set_color('white')
+        try:
+            # Get processed data and validate
+            processed_data = self.get_processed_data(effect_name)
+            if len(processed_data) == 0:
+                QMessageBox.warning(self, "Error", "Processed data is empty!")
+                return
 
-        t = np.linspace(0, len(processed_data)/self.fs, len(processed_data))
-        ax.plot(t, processed_data, color='lime')
-        ax.set_title(effect_name + " Waveform")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Amplitude")
+            # Handle NaNs or Infs in processed data
+            processed_data = np.nan_to_num(processed_data, nan=0.0, posinf=0.0, neginf=0.0)
 
-        self.canvas.draw()
-        self.status_bar.showMessage(f"Showing {effect_name} waveform...")
+            # Set up plotting
+            self.figure.clear()
+            ax = self.figure.add_subplot(111)
+            ax.set_facecolor('#303030')
+            ax.tick_params(colors='white', which='both')
+            ax.spines['bottom'].set_color('white')
+            ax.spines['top'].set_color('white')
+            ax.spines['right'].set_color('white')
+            ax.spines['left'].set_color('white')
+            ax.xaxis.label.set_color('white')
+            ax.yaxis.label.set_color('white')
+            ax.title.set_color('white')
+
+            # Generate time vector and downsample data
+            t = np.linspace(0, len(processed_data) / self.fs, len(processed_data))
+            sampled_factor = max(1, len(processed_data) // 1000)  # Keep at least 1000 points
+            t_sampled = t[::sampled_factor]
+            processed_downsampled = processed_data[::sampled_factor]
+
+            # Plot waveform
+            ax.plot(t_sampled, processed_downsampled, color='lime')
+            ax.set_title(effect_name + " Waveform")
+            ax.set_xlabel("Time (s)")
+            ax.set_ylabel("Amplitude")
+            ax.set_xlim(0, t_sampled[-1])
+            ax.set_ylim(processed_data.min() - 0.1, processed_data.max() + 0.1)
+
+            self.canvas.draw()
+            self.status_bar.showMessage(f"Showing {effect_name} waveform...")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An error occurred while plotting the graph: {str(e)}")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
