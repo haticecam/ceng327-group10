@@ -578,9 +578,6 @@ class AudioApp(QMainWindow):
     def apply_reverb(self):
         self.apply_effect("Reverb")
 
-    def apply_autotune(self):
-        self.apply_effect("Autotune")
-
     def change_volume(self, value):
         volume = value / 100.0
         pygame.mixer.music.set_volume(volume)
