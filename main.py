@@ -150,7 +150,6 @@ class AudioApp(QMainWindow):
         effects_menu.addAction("Echo", self.apply_echo)
         effects_menu.addAction("Bass", self.apply_bass)
         effects_menu.addAction("Reverb", self.apply_reverb)
-        effects_menu.addAction("Autotune", self.apply_autotune)
 
         help_menu = menu_bar.addMenu("Help")
         about_action = QAction("About", self)
@@ -207,14 +206,10 @@ class AudioApp(QMainWindow):
         reverb_btn = QPushButton("Reverb")
         reverb_btn.clicked.connect(self.apply_reverb)
 
-        autotune_btn = QPushButton("Autotune")
-        autotune_btn.clicked.connect(self.apply_autotune)
-
         effects_layout.addWidget(default_effect_btn)
         effects_layout.addWidget(echo_btn)
         effects_layout.addWidget(bass_btn)
         effects_layout.addWidget(reverb_btn)
-        effects_layout.addWidget(autotune_btn)
 
         effects_group.setLayout(effects_layout)
 
@@ -302,8 +297,7 @@ class AudioApp(QMainWindow):
             "Original": lambda: self.plot_graph("Original"),
             "Echo": lambda: self.plot_graph("Echo"),
             "Bass": lambda: self.plot_graph("Bass"),
-            "Reverb": lambda: self.plot_graph("Reverb"),
-            "Autotune" : lambda:self.plot_graph("Autotune")
+            "Reverb": lambda: self.plot_graph("Reverb")
         }
 
         graph_layout = QHBoxLayout()
@@ -628,50 +622,6 @@ class AudioApp(QMainWindow):
             processed = convolve(data, ir, mode='full')
             output = dry_wet * processed[:len(data)] + (1 - dry_wet) * data
             return np.clip(output, -1, 1)
-
-
-        elif effect_name == "Autotune":
-
-
-            def get_closest_pitch(value):
-                if np.isnan(value):
-                    return np.nan
-
-                # C major scale degrees in semitones
-                degrees = np.array([0, 2, 4, 5, 7, 9, 11, 12])
-                degrees = np.concatenate((degrees, [degrees[0] + 12]))
-
-                midi_note = librosa.hz_to_midi(value)  # Convert frequency to MIDI note
-                degree = midi_note % 12  # Get pitch class
-                closest_pitch_class = np.argmin(np.abs(degrees - degree))
-
-                degree_diff = degree - degrees[closest_pitch_class]
-                midi_note -= degree_diff
-
-                return librosa.midi_to_hz(midi_note)  # Convert MIDI note back to frequency
-
-            fmin = float(librosa.note_to_hz('C2'))  # Lower pitch limit
-            fmax = float(librosa.note_to_hz('C7'))  # Upper pitch limit
-            frame_length = 2048
-            hop_length = frame_length // 4
-
-            # Step 1: Detect pitch using PYIN
-            f0, _, _ = librosa.pyin(data, fmin=fmin, fmax=fmax, sr=self.fs,
-                                    frame_length=frame_length, hop_length=hop_length)
-
-            # Step 2: Correct pitch to scale
-            corrected_f0 = np.array([get_closest_pitch(f) if not np.isnan(f) else f for f in f0])
-            corrected_f0 = medfilt(corrected_f0, kernel_size=11)
-
-            # Replace NaN values with original detected pitches
-            corrected_f0[np.isnan(corrected_f0)] = f0[np.isnan(corrected_f0)]
-
-            # Step 3: Apply pitch correction with time-stretching
-            pitch_shift_steps = float(np.nanmean(librosa.hz_to_midi(corrected_f0) - librosa.hz_to_midi(f0)))
-            processed = librosa.effects.pitch_shift(data, sr=self.fs, n_steps=pitch_shift_steps)
-
-            return processed
-
         else:
             return data
 
